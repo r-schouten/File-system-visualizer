@@ -33,6 +33,7 @@ SOURCES += \
         visualfolder.cpp
 
 HEADERS += \
+        config.h \
         directoryentry.h \
         directoryscanner.h \
         mainwindow.h \

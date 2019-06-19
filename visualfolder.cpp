@@ -1,17 +1,20 @@
 #include "visualfolder.h"
 //declaration of static member pointer
 VisualFolder* VisualFolder::selectedFolder = nullptr;
-
-VisualFolder::VisualFolder(DirectoryEntry *directory, int middleX, int middleY, int dept, int hue)
-    :directory(directory),middleX(middleX),middleY(middleY)
+VisualFolder* VisualFolder::rootFolder = nullptr;
+int64_t VisualFolder::totalSize = 0;
+VisualFolder::VisualFolder(DirectoryEntry *directory, MiddleCircle *center, int dept, int64_t beginSize, int64_t directorySize)
+    :directory(directory),beginSize(beginSize),directorySize(directorySize)
 {
-    distanceFromCenter = 100 + 105 * dept;
-    outerRadius = distanceFromCenter + 100;
+    middleX = center->middleX;
+    middleY = center->middleY;
+    distanceFromCenter = CIRCLE_RADIUS + (VISUAL_RING_SIZE+5) * dept;
+    outerRadius = distanceFromCenter + VISUAL_RING_SIZE;
+
     s = 30 + qrand() % 225;
-    l = 80 + std::min(dept * 35,255);
-    h = hue + qrand() % 10;
+    l = 80 + std::min((255-80)/(MAX_DEPT+1) * dept, 255);
+    h = qrand();
     h = h%359;
-    qDebug("%d %d %d",h,s,l);
 }
 //todo optimize bounding rect, boundingrect is to big with cost a lot of performance
 QRectF VisualFolder::boundingRect() const
@@ -33,22 +36,32 @@ void VisualFolder::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
     painter->setBrush(brush);
 
     // outer and inner washer dimensions
-    QRectF r1(boundingRect());
+    const QRectF r1(boundingRect());
     QRectF r2(-distanceFromCenter/2, -distanceFromCenter/2, distanceFromCenter, distanceFromCenter);
 
-    double startAngle = 3.60 * startPercentage;
-    double angle = 3.60 * percentage;
+    double startAngle = 360 * (double)beginSize/totalSize;
+    double angle = 360 * (double)directorySize/totalSize;
+
     // create a path with two arcs to form the outline
-    QPainterPath path;
+    QPoint startPoint(0.5*distanceFromCenter*cos(startAngle/-57.2958),0.5*distanceFromCenter*sin(startAngle/-57.2958));
+    QPainterPath path(startPoint);
     path.arcTo(r1,startAngle,angle);
     path.arcTo(r2,angle + startAngle,-angle);
 
     // and finally fill it
     painter->fillPath(path, brushColor);
-    //painter->drawPath(path);
-}
+    if(selectedFolder == this)
+    {
+        painter->drawPath(path);
+    }
 
-void VisualFolder::mousePressEvent(QGraphicsSceneMouseEvent *event)
+    //if a item is to small to visualize delete it
+    if((double)directorySize/totalSize < 0.005)//0.5%
+    {
+        delete this;
+    }
+}
+bool VisualFolder::validateClick(QGraphicsSceneMouseEvent *event)
 {
     //event for click in the bounding rect
     //the bounding rect is not the pie, there are perhaps multiple folders that are clicked
@@ -58,11 +71,11 @@ void VisualFolder::mousePressEvent(QGraphicsSceneMouseEvent *event)
     int deltaX = x - middleX;
     int deltaY = y - middleY;
     //calculate the angle from the center
-    double clickAngle = atan2(deltaY,deltaX) * 57;
+    double clickAngle = atan2(deltaY,deltaX) * 57.2958;
     if(clickAngle < 0) clickAngle += 360;
     clickAngle = 360 - clickAngle;
-    double startAngle = 3.60 * startPercentage;
-    double endAngle = 3.60 * percentage + startAngle;
+    double startAngle = 360 * (double)beginSize/totalSize;
+    double endAngle = 360 * (double)directorySize/totalSize + startAngle;
 
     //if the angle is between the start and end angle of the pie
     if(clickAngle > startAngle)
@@ -75,13 +88,40 @@ void VisualFolder::mousePressEvent(QGraphicsSceneMouseEvent *event)
             {
                 if(clickDistanceFromCenter < outerRadius/2)
                 {
-                    selectedFolder = this;
-                    event->setAccepted(true);
-                    return;
+                    return true;
                 }
             }
-
         }
+
+    }
+    return false;
+}
+void VisualFolder::mousePressEvent(QGraphicsSceneMouseEvent *event)
+{
+    //event for click in the bounding rect
+    //the bounding rect is not the pie, there are perhaps multiple folders that are clicked
+    //check if this is the right folder
+    if(validateClick(event))
+    {
+        selectedFolder = this;
+        event->setAccepted(true);
+        return;
+
+    }
+    event->setAccepted(false);
+}
+
+void VisualFolder::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
+{
+    //event for click in the bounding rect
+    //the bounding rect is not the pie, there are perhaps multiple folders that are clicked
+    //check if this is the right folder
+    if(validateClick(event))
+    {
+        rootFolder = this;
+        event->setAccepted(true);
+        return;
+
     }
     event->setAccepted(false);
 }
