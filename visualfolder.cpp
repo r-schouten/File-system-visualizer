@@ -3,7 +3,7 @@
 VisualFolder* VisualFolder::selectedFolder = nullptr;
 VisualFolder* VisualFolder::rootFolder = nullptr;
 int64_t VisualFolder::totalSize = 0;
-VisualFolder::VisualFolder(DirectoryEntry *directory, MiddleCircle *center, int dept, int64_t beginSize, int64_t directorySize)
+VisualFolder::VisualFolder(DirectoryEntry *directory, MiddleCircle *center, int dept, int64_t beginSize, int64_t directorySize, int parentColor)
     :directory(directory),beginSize(beginSize),directorySize(directorySize)
 {
     middleX = center->middleX;
@@ -13,8 +13,26 @@ VisualFolder::VisualFolder(DirectoryEntry *directory, MiddleCircle *center, int 
 
     s = 30 + qrand() % 225;
     l = 80 + std::min((255-80)/(MAX_DEPT+1) * dept, 255);
-    h = qrand();
-    h = h%359;
+    if(parentColor == -1)
+    {
+        h = qrand();
+        h = h%359;
+    }
+    else {
+        //value between -40 - -10 or 10 - 40
+        int randomValue = (qrand()%60)-30;
+        if(randomValue >0)
+        {
+            randomValue +=10;
+        }
+        else {
+            randomValue -=10;
+        }
+        h = parentColor + randomValue;
+        if(h<0)h+=360;
+        if(h>359)h-=360;
+    }
+
 }
 //todo optimize bounding rect, boundingrect is to big with cost a lot of performance
 QRectF VisualFolder::boundingRect() const
@@ -71,11 +89,11 @@ bool VisualFolder::validateClick(QGraphicsSceneMouseEvent *event)
     int deltaX = x - middleX;
     int deltaY = y - middleY;
     //calculate the angle from the center
-    double clickAngle = atan2(deltaY,deltaX) * 57.2958;
-    if(clickAngle < 0) clickAngle += 360;
-    clickAngle = 360 - clickAngle;
-    double startAngle = 360 * (double)beginSize/totalSize;
-    double endAngle = 360 * (double)directorySize/totalSize + startAngle;
+    double clickAngle = atan2(deltaY,deltaX);
+    if(clickAngle < 0) clickAngle += 2*M_PI;
+    clickAngle = 2*M_PI - clickAngle;
+    double startAngle = 2*M_PI * (double)beginSize/totalSize;
+    double endAngle = 2*M_PI * (double)directorySize/totalSize + startAngle;
 
     //if the angle is between the start and end angle of the pie
     if(clickAngle > startAngle)

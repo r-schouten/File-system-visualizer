@@ -26,7 +26,9 @@ class DirectoryScanner
 {
 public:
     DirectoryScanner();
+    ~DirectoryScanner();
     void startScan(string directory);
+    void stopScan();
     DirectoryEntry* baseDirectory = nullptr;
 
     static ScanState scanState;
@@ -35,6 +37,8 @@ public:
     int64_t totalSize;
 private:
     static thread scanThread;
+    bool *stopFlag;
     static void scanTree(DirectoryEntry *baseDirectory, ScanState &scanState);
+
 };
 

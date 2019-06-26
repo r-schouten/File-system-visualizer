@@ -27,17 +27,21 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
         directoryentry.cpp \
         directoryscanner.cpp \
+        folderpropertieslabel.cpp \
         main.cpp \
         mainwindow.cpp \
         middlecircle.cpp \
+        utils.cpp \
         visualfolder.cpp
 
 HEADERS += \
         config.h \
         directoryentry.h \
         directoryscanner.h \
+        folderpropertieslabel.h \
         mainwindow.h \
         middlecircle.h \
+        utils.h \
         visualfolder.h
 
 FORMS += \

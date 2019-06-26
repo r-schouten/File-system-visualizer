@@ -4,6 +4,7 @@
 #include "middlecircle.h"
 #include "visualfolder.h"
 #include "config.h"
+#include "folderpropertieslabel.h"
 
 #include <QDirModel>
 #include <QMainWindow>
@@ -22,6 +23,7 @@ public:
     ~MainWindow();
     QGraphicsScene* dataScene;
     MiddleCircle* middleCircle;
+    FolderPropertiesLabel* propertiesLabel = nullptr;
 public slots:
     void updateProgress();
 
@@ -32,15 +34,17 @@ private slots:
 
 private:
     Ui::MainWindow *ui;
+    QTimer* timer = nullptr;
     DirectoryScanner* scanner;
     DirectoryEntry* currentItem = nullptr;
     QDirModel* directoryViewModel;
     VisualFolder* lastSelectedVisualFolder = nullptr;
     VisualFolder* lastVisualRootFolder = nullptr;
     int64_t currentSize = 0;
-
+    bool firstFolderScanned = false;
     void checkForNewScannedFolders();
-    void visualizeFolder(DirectoryEntry *directory, int dept, int64_t currentSize);
-    void scanFolder(DirectoryEntry *item, int dept, int64_t currentSize);
+    void scanFolder(DirectoryEntry *item, int dept, int64_t currentSize, int color);
+    void startNewScan(DirectoryEntry *baseDirectory);
+    VisualFolder* visualizeFolder(DirectoryEntry *item, int dept, int64_t currentSize, int parentColor);
 };
 

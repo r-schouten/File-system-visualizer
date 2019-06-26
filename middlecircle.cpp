@@ -1,4 +1,5 @@
 #include "middlecircle.h"
+#include "visualfolder.h"
 
 MiddleCircle::MiddleCircle(int middleX, int middleY)
     :middleX(middleX),middleY(middleY){}
@@ -27,7 +28,7 @@ void MiddleCircle::paint(QPainter *painter, const QStyleOptionGraphicsItem *opti
 
     painter->drawEllipse(boundingRect());
     const QRect rectangle = QRect(-50, -50, 100, 100);
-    painter->drawText(rectangle,Qt::AlignCenter,path);
+    painter->drawText(rectangle,Qt::AlignCenter,Utils::sizeToString(VisualFolder::totalSize));
 }
 
 void MiddleCircle::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)

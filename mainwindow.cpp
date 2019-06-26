@@ -8,8 +8,8 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
     scanner = new DirectoryScanner();
 
-
-    QTimer *timer = new QTimer(this);
+    //generate a ui update signal
+    timer = new QTimer(this);
     connect(timer, SIGNAL(timeout()), this, SLOT(updateProgress()));
     timer->start(UPDATE_RATE);
 
@@ -17,22 +17,32 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->graphicsView->setScene(dataScene);
 
     middleCircle = new MiddleCircle(CIRCLE_X, CIRCLE_Y);
-    middleCircle->setZValue(999999);
     dataScene->addItem(middleCircle);
+
+    propertiesLabel = new FolderPropertiesLabel();
+    dataScene->addItem(propertiesLabel);
 
     ui->graphicsView->setSceneRect(0, 0, FIELD_SIZE_X, FIELD_SIZE_Y);
 
     directoryViewModel = new QDirModel(this);
     ui->directoryView->setModel(directoryViewModel);
-    //dont show collums like data and type
+    //dont show collums like date and type
     //ui->directoryView->hideColumn(1);
     ui->directoryView->hideColumn(2);
     ui->directoryView->hideColumn(3);
-
+    ui->directoryView->setColumnWidth(0,300);
     ui->rootDirectory->setText(DEFAULT_PATH);
 #ifdef USE_TOTAL_DRIVE_SIZE
     VisualFolder::totalSize = scanner->totalSize;
 #endif
+}
+MainWindow::~MainWindow()
+{
+    delete ui;
+    delete timer;
+    delete scanner;
+    delete dataScene;
+    delete directoryViewModel;
 }
 void MainWindow::on_startScanning_clicked()
 {
@@ -40,8 +50,12 @@ void MainWindow::on_startScanning_clicked()
     {
         QString path = ui->rootDirectory->text();
         scanner->startScan(path.toStdString());
-        currentItem = scanner->baseDirectory->child;
-        middleCircle->path = QString::fromStdString(scanner->baseDirectory->directory.string());
+        startNewScan(scanner->baseDirectory->child);
+        ui->startScanning->setText("stop");
+    }
+    else {
+        scanner->stopScan();
+        ui->startScanning->setText("start");
     }
 }
 void MainWindow::updateProgress()
@@ -77,36 +91,16 @@ void MainWindow::updateProgress()
             {
                 lastVisualRootFolder = VisualFolder::rootFolder;
 
-                currentItem = VisualFolder::rootFolder->directory->child;
-                QString path = QString::fromStdString(VisualFolder::rootFolder->directory->directory.string());
-                if(currentItem == nullptr)cout << "current item is nullptr"<<endl;
-                currentSize = 0;
-                cout << "new root folder"<<endl;
-
-                dataScene->clear();
-
-                middleCircle = new MiddleCircle(CIRCLE_X, CIRCLE_Y);
-                middleCircle->setZValue(999999);
-                middleCircle->path = path;
-
-                dataScene->addItem(middleCircle);
+                startNewScan(VisualFolder::rootFolder->directory->child);
+                checkForNewScannedFolders();
             }
         }
         if(middleCircle->doubleClicked)
         {
             middleCircle->doubleClicked = false;
-            currentItem = scanner->baseDirectory->child;
-            currentSize = 0;
-            cout << "new root folder reset"<<endl;
 
-            dataScene->clear();
-
-            middleCircle = new MiddleCircle(CIRCLE_X, CIRCLE_Y);
-            middleCircle->setZValue(999999);
-            dataScene->addItem(middleCircle);
-
-            middleCircle->path = QString::fromStdString(scanner->baseDirectory->directory.string());
-
+            startNewScan(scanner->baseDirectory->child);
+            checkForNewScannedFolders();
         }
     }
 #ifdef RESIZE_ON_REPAINT
@@ -114,6 +108,27 @@ void MainWindow::updateProgress()
     ui->graphicsView->fitInView(0, 0, FIELD_SIZE_X, FIELD_SIZE_Y, Qt::KeepAspectRatio);
 #endif
     repaint();
+}
+void MainWindow::startNewScan(DirectoryEntry* baseDirectory)
+{
+    currentItem = baseDirectory;
+    currentSize = 0;
+
+    VisualFolder::selectedFolder = nullptr;
+    VisualFolder::rootFolder = nullptr;
+    dataScene->clear();
+
+    middleCircle = new MiddleCircle(CIRCLE_X, CIRCLE_Y);
+    middleCircle->path = QString::fromStdString(scanner->baseDirectory->directory.string());
+    dataScene->addItem(middleCircle);
+
+    propertiesLabel = new FolderPropertiesLabel();
+    propertiesLabel->setZValue(999999);
+    dataScene->addItem(propertiesLabel);
+
+    firstFolderScanned = false;
+    cout << "new root folder"<<endl;
+
 }
 void MainWindow::checkForNewScannedFolders()
 {
@@ -124,12 +139,21 @@ void MainWindow::checkForNewScannedFolders()
         doNextIteration = false;
         if(currentItem != nullptr)
         {
+            if(!firstFolderScanned)
+            {
+                if(currentItem->scanDone)
+                {
+                    scanFolder(currentItem,1,currentSize, -1);
+                    currentSize += currentItem->directorySize;
+                    firstFolderScanned = true;
+                }
+            }
             if(currentItem->right != nullptr)
             {
                 if(currentItem->right->scanDone)
                 {
                     currentItem = currentItem->right;
-                    scanFolder(currentItem,1,currentSize);
+                    scanFolder(currentItem,1,currentSize,-1);
                     currentSize += currentItem->directorySize;
                     doNextIteration = true;
                 }
@@ -141,6 +165,7 @@ void MainWindow::checkForNewScannedFolders()
         }
         if(doNextIteration)
         {
+            //prevent a not responding gui thread by
             clock_t end = clock();
             double elapsed_msecs = double(end - begin) / CLOCKS_PER_SEC*1000;
             if(elapsed_msecs > UPDATE_RATE/2)
@@ -150,31 +175,33 @@ void MainWindow::checkForNewScannedFolders()
         }
     }
 }
-void MainWindow::scanFolder(DirectoryEntry* item,int dept, int64_t currentSize)
+void MainWindow::scanFolder(DirectoryEntry* item,int dept, int64_t currentSize, int parentColor)
 {
-    visualizeFolder(item,dept, currentSize);
-    if(item->child != nullptr)
+    VisualFolder* parent = visualizeFolder(item,dept, currentSize, parentColor);
+    parentColor = parent->h;
+    if(item->child)
     {
         if(dept < MAX_DEPT)
         {
-            scanFolder(item->child, dept+1, currentSize);
-            currentSize += item->child->directorySize;
             item = item->child;
-            while(item->right!=nullptr)
+            scanFolder(item, dept+1, currentSize,parentColor);
+            currentSize += item->directorySize;
+            while(item->right)
             {
-                scanFolder(item->right, dept+1, currentSize);
-                currentSize += item->right->directorySize;
                 item = item->right;
+                scanFolder(item, dept+1, currentSize, parentColor);
+                currentSize += item->directorySize;
             }
         }
 
     }
 }
-void MainWindow::visualizeFolder(DirectoryEntry* item, int dept, int64_t currentSize)
-{
-    cout << item->directory << dept <<endl;
 
-    VisualFolder* folder = new VisualFolder(item, middleCircle, dept, currentSize, item->directorySize);
+VisualFolder* MainWindow::visualizeFolder(DirectoryEntry* item, int dept, int64_t currentSize, int parentColor)
+{
+    //cout << item->directory << dept <<endl;
+
+    VisualFolder* folder = new VisualFolder(item, middleCircle, dept, currentSize, item->directorySize, parentColor);
     folder->directory = item;
 
 #ifndef USE_TOTAL_DRIVE_SIZE
@@ -182,10 +209,8 @@ void MainWindow::visualizeFolder(DirectoryEntry* item, int dept, int64_t current
 #endif
 
     dataScene->addItem(folder);
+    return folder;
 }
-MainWindow::~MainWindow()
-{
-    delete ui;
-}
+
 
 

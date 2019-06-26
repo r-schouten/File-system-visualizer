@@ -16,6 +16,8 @@ using namespace std;
 class DirectoryEntry
 {
 public:
+    DirectoryEntry(fs::path directory, DirectoryEntry *parent, int depth, bool* stopFlag);
+    ~DirectoryEntry();
 
     int64_t directorySize = 0;
     static int64_t currentTotalSize;
@@ -31,8 +33,8 @@ public:
     DirectoryEntry* next = nullptr;
     DirectoryEntry* previous = nullptr;
     fs::path directory;
-    DirectoryEntry(fs::path directory, DirectoryEntry *parent, int depth);
 private:
     int64_t ComputeFileSize(fs::path pathToCheck);
+    bool* stopFlag;
 };
 

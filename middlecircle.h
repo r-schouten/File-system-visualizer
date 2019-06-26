@@ -3,8 +3,8 @@
 #include <QGraphicsItem>
 #include <QPainter>
 #include <QGraphicsSceneMouseEvent>
-
 #include "config.h"
+#include "utils.h"
 class MiddleCircle : public QGraphicsItem
 {
 public:
@@ -16,7 +16,7 @@ public:
     QRectF boundingRect() const;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget);
     bool doubleClicked = false;
-    // QGraphicsItem interface
+
 protected:
     void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event);
 };

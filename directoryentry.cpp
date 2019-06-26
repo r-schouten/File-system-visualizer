@@ -3,8 +3,8 @@
 int64_t DirectoryEntry::currentTotalSize = 0;
 DirectoryEntry* DirectoryEntry::lastItem = nullptr;
 
-DirectoryEntry::DirectoryEntry(fs::path directory, DirectoryEntry* parent, int depth)
-    :directory(directory),parent(parent),depth(depth){}
+DirectoryEntry::DirectoryEntry(fs::path directory, DirectoryEntry* parent, int depth, bool *stopFlag)
+    :directory(directory),parent(parent),depth(depth),stopFlag(stopFlag){}
 inline int64_t DirectoryEntry::ComputeFileSize(fs::path pathToCheck)
 {
     auto err = std::error_code{};
@@ -13,8 +13,20 @@ inline int64_t DirectoryEntry::ComputeFileSize(fs::path pathToCheck)
 
     return filesize;
 }
+DirectoryEntry::~DirectoryEntry()
+{
+    if(child)
+    {
+        delete child;
+    }
+    if(right)
+    {
+        delete right;
+    }
+}
 void DirectoryEntry::scanSize()
 {
+    if(*stopFlag)return;
     auto err = std::error_code{};
     DirectoryEntry* tail = child;
     for (const fs::directory_entry entry : fs::directory_iterator(directory, fs::directory_options::skip_permission_denied, err))
@@ -26,16 +38,15 @@ void DirectoryEntry::scanSize()
     #ifdef DEBUG
                 cout << entry.path() << "[+] " << endl;
     #endif
-                if(entry.path().string().length()>=240)break;//program crashed is path is longer than 260 chars
                 if(child == nullptr)
                 {
-                    child = new DirectoryEntry(PATH, this,depth+1);
+                    child = new DirectoryEntry(PATH, this,depth+1,stopFlag);
                     child->scanSize();
                     directorySize += child->directorySize;
                     tail = child;
                 }
                 else {
-                    DirectoryEntry* toAdd = new DirectoryEntry(entry.path(), this,depth+1);
+                    DirectoryEntry* toAdd = new DirectoryEntry(entry.path(), this,depth+1,stopFlag);
                     tail->right = toAdd;
                     toAdd->left = tail;
                     toAdd->scanSize();
@@ -45,6 +56,7 @@ void DirectoryEntry::scanSize()
             }
             else if(fs::is_regular_file(entry.status()))
             {
+
     #ifdef DEBUG
                 cout << entry.path() << "[|] "   << ComputeFileSize(entry) <<endl;
     #endif

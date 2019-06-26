@@ -1,4 +1,5 @@
 #pragma once
+#define _USE_MATH_DEFINES
 #include "directoryentry.h"
 #include "middlecircle.h"
 #include "config.h"
@@ -8,10 +9,11 @@
 #include <QPainter>
 #include <QGraphicsSceneMouseEvent>
 #include <QRandomGenerator>
+#include <math.h>
 class VisualFolder : public QGraphicsItem
 {
 public:
-    VisualFolder(DirectoryEntry *directory, MiddleCircle* center, int dept, int64_t beginSize, int64_t directorySize);
+    VisualFolder(DirectoryEntry *directory, MiddleCircle* center, int dept, int64_t beginSize, int64_t directorySize, int parentColor);
 
     int middleX;
     int middleY;
